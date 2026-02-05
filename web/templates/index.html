@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semiotic Channel Experiment</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a25;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --cached: #06b6d4;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border: #2d2d3a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--accent), #a855f7);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card h2::before {
+            content: '';
+            width: 4px;
+            height: 1.2rem;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group.models-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .range-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .btn-run {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            border: none;
+            border-radius: 0.5rem;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-run:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-run:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-stop {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--error), #dc2626);
+            border: none;
+            border-radius: 0.5rem;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-stop:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+        }
+
+        .status-badge.connected {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status-badge.disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--error);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .progress-container {
+            margin-top: 1rem;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .progress-label {
+            color: var(--text-secondary);
+        }
+
+        .progress-percent {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #a855f7);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-details {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .results-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            padding: 1rem;
+        }
+
+        .log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            background: var(--bg-secondary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-entry {
+            padding: 0.4rem 0.5rem;
+            border-bottom: 1px solid var(--border);
+            animation: fadeIn 0.3s ease;
+            border-radius: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .log-entry .time {
+            color: var(--text-secondary);
+            margin-right: 0.5rem;
+        }
+
+        .log-entry.temp-header {
+            background: rgba(99, 102, 241, 0.15);
+            border-left: 3px solid var(--accent);
+            font-weight: 600;
+        }
+
+        .log-entry.concept-result {
+            background: rgba(34, 197, 94, 0.1);
+            border-left: 3px solid var(--success);
+        }
+
+        .log-entry.concept-result .concept-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .log-entry.concept-result .interpretation {
+            color: #a78bfa;
+        }
+
+        .log-entry.complete {
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
+            border-left: 3px solid #a855f7;
+            font-weight: 600;
+        }
+
+        .log-entry.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid var(--error);
+            color: var(--error);
+        }
+
+        .log-entry.info {
+            color: var(--text-secondary);
+        }
+
+        .cached-indicator {
+            display: inline-block;
+            background: var(--cached);
+            color: #0a0a0f;
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.2rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-left: 0.3rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            background: var(--bg-secondary);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), #a855f7);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .concept-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 0.5rem;
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .concept-chip {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.4rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
+        .concept-chip .score {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .concept-chip.complete {
+            border-color: var(--success);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🔮 Semiotic Channel Experiment</h1>
+            <p class="subtitle">Measuring the Capacity for Meaning in LLM Communication</p>
+        </header>
+
+        <div class="grid">
+            <!-- Control Panel -->
+            <div class="card">
+                <h2>Configuration</h2>
+
+                <div class="form-group models-group">
+                    <div>
+                        <label>Emitter Model</label>
+                        <select id="emitter_model">
+                            <option value="llama3:latest">Loading models...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Receiver Model</label>
+                        <select id="receiver_model">
+                            <option value="llama3:latest">Loading models...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Concept Category</label>
+                    <select id="category">
+                        <option value="abstract">Abstract (Emotions, Ideas)</option>
+                        <option value="concrete">Concrete (Objects)</option>
+                        <option value="all">All Concepts</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Number of Concepts</label>
+                    <input type="number" id="n_concepts" value="5" min="1" max="50">
+                </div>
+
+                <div class="form-group">
+                    <label>Descriptions per Concept</label>
+                    <input type="number" id="n_descriptions" value="3" min="1" max="10">
+                </div>
+
+                <div class="form-group">
+                    <label>Temperature Range</label>
+                    <div class="range-group">
+                        <input type="number" id="temp_min" value="0.1" min="0" max="2" step="0.1" placeholder="Min">
+                        <input type="number" id="temp_max" value="1.5" min="0" max="2" step="0.1" placeholder="Max">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Temperature Steps</label>
+                    <input type="number" id="temp_steps" value="5" min="2" max="15">
+                </div>
+
+                <button id="runBtn" class="btn-run" onclick="toggleExperiment()">
+                    ▶️ Run Experiment
+                </button>
+
+                <div id="status" class="status-badge disconnected">
+                    <span class="status-dot"></span>
+                    <span>Checking Ollama...</span>
+                </div>
+
+                <div class="progress-container hidden" id="progressContainer">
+                    <div class="progress-header">
+                        <span class="progress-label" id="progressLabel">Initializing...</span>
+                        <span class="progress-percent" id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-details" id="progressDetails"></div>
+                </div>
+            </div>
+
+            <!-- Results Area -->
+            <div class="results-area">
+                <!-- Summary Metrics -->
+                <div class="card" id="summaryCard">
+                    <h2>Results Summary</h2>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-value" id="capacityValue">--</div>
+                            <div class="metric-label">Semiotic Capacity (C)</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="optimalTemp">--</div>
+                            <div class="metric-label">Optimal Temperature (λ*)</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="conceptCount">0</div>
+                            <div class="metric-label">Concepts Tested</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="card">
+                    <h2>Semiotic Channel Profile</h2>
+                    <div class="chart-container">
+                        <canvas id="chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Concepts Progress -->
+                <div class="card hidden" id="conceptsCard">
+                    <h2>Concepts</h2>
+                    <div class="concept-grid" id="conceptGrid"></div>
+                </div>
+
+                <!-- Live Log -->
+                <div class="card">
+                    <h2>Experiment Log</h2>
+                    <div class="log-container" id="logContainer">
+                        <div class="log-entry info">Waiting to start experiment...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let experimentData = { temperatures: [], S: [], D: [] };
+        let isRunning = false;
+        let abortController = null;
+        let totalSteps = 0;
+        let currentStep = 0;
+        let currentTemp = null;
+        let currentConcept = null;
+
+        // Initialize chart
+        function initChart() {
+            const ctx = document.getElementById('chart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'S (Breadth)',
+                            data: [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'D (Decipherability)',
+                            data: [],
+                            borderColor: '#22c55e',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#94a3b8' }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Global Average',
+                            color: '#e2e8f0',
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Temperature (λ)', color: '#94a3b8' },
+                            grid: { color: '#2d2d3a' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Score', color: '#94a3b8' },
+                            grid: { color: '#2d2d3a' },
+                            ticks: { color: '#94a3b8' },
+                            min: 0,
+                            max: 1
+                        }
+                    }
+                }
+            });
+        }
+
+        // Check Ollama status
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                const status = document.getElementById('status');
+
+                if (data.ollama_available) {
+                    status.className = 'status-badge connected';
+                    status.innerHTML = '<span class="status-dot"></span><span>Ollama Connected</span>';
+                    if (!isRunning) {
+                        document.getElementById('runBtn').disabled = false;
+                    }
+
+                    // Populate both model dropdowns (preserve current selection)
+                    const emitterSelect = document.getElementById('emitter_model');
+                    const receiverSelect = document.getElementById('receiver_model');
+
+                    // Save current selections
+                    const currentEmitter = emitterSelect.value;
+                    const currentReceiver = receiverSelect.value;
+
+                    const modelOptions = data.models.map(m =>
+                        `<option value="${m}">${m}</option>`
+                    ).join('');
+
+                    emitterSelect.innerHTML = modelOptions;
+                    receiverSelect.innerHTML = modelOptions;
+
+                    // Restore selections (or use first available model)
+                    if (data.models.includes(currentEmitter)) {
+                        emitterSelect.value = currentEmitter;
+                    }
+                    if (data.models.includes(currentReceiver)) {
+                        receiverSelect.value = currentReceiver;
+                    }
+                } else {
+                    status.className = 'status-badge disconnected';
+                    status.innerHTML = '<span class="status-dot"></span><span>Ollama Offline</span>';
+                    document.getElementById('runBtn').disabled = true;
+                }
+            } catch (e) {
+                console.error('Status check failed:', e);
+            }
+        }
+
+        // Add summary log entry
+        function addLog(message, type = 'info') {
+            const container = document.getElementById('logContainer');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="time">[${time}]</span> ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Update progress
+        function updateProgress(label, current, total, details = '') {
+            const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+            document.getElementById('progressLabel').textContent = label;
+            document.getElementById('progressPercent').textContent = `${percent}%`;
+            document.getElementById('progressFill').style.width = `${percent}%`;
+            document.getElementById('progressDetails').textContent = details;
+        }
+
+        // Toggle experiment run/stop
+        function toggleExperiment() {
+            if (isRunning) {
+                stopExperiment();
+            } else {
+                runExperiment();
+            }
+        }
+
+        // Stop experiment
+        function stopExperiment() {
+            if (abortController) {
+                abortController.abort();
+            }
+            isRunning = false;
+            const btn = document.getElementById('runBtn');
+            btn.className = 'btn-run';
+            btn.innerHTML = '▶️ Run Experiment';
+            addLog('⏹️ Experiment stopped by user', 'error');
+        }
+
+        // Run experiment
+        function runExperiment() {
+            const config = {
+                n_concepts: parseInt(document.getElementById('n_concepts').value),
+                n_descriptions: parseInt(document.getElementById('n_descriptions').value),
+                category: document.getElementById('category').value,
+                emitter_model: document.getElementById('emitter_model').value,
+                receiver_model: document.getElementById('receiver_model').value,
+                temp_min: parseFloat(document.getElementById('temp_min').value),
+                temp_max: parseFloat(document.getElementById('temp_max').value),
+                temp_steps: parseInt(document.getElementById('temp_steps').value)
+            };
+
+            // Calculate total steps for progress
+            totalSteps = config.temp_steps * config.n_concepts;
+            currentStep = 0;
+
+            // Reset UI
+            document.getElementById('logContainer').innerHTML = '';
+            document.getElementById('conceptGrid').innerHTML = '';
+            document.getElementById('conceptsCard').classList.remove('hidden');
+            document.getElementById('progressContainer').classList.remove('hidden');
+            experimentData = { temperatures: [], S: [], D: [] };
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            chart.data.datasets[1].data = [];
+            chart.update();
+
+            // Update button to Stop
+            isRunning = true;
+            const btn = document.getElementById('runBtn');
+            btn.className = 'btn-stop';
+            btn.innerHTML = '⏹️ Stop Experiment';
+
+            updateProgress('Starting...', 0, 100);
+            addLog(`Starting experiment: ${config.n_concepts} concepts × ${config.temp_steps} temperatures`, 'info');
+
+            // Create abort controller
+            abortController = new AbortController();
+
+            // Start SSE stream
+            fetch('/api/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config),
+                signal: abortController.signal
+            }).then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                function read() {
+                    reader.read().then(({ done, value }) => {
+                        if (done || !isRunning) {
+                            finishExperiment();
+                            return;
+                        }
+
+                        const text = decoder.decode(value);
+                        const lines = text.split('\n');
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.substring(6));
+                                    handleEvent(data);
+                                } catch (e) { }
+                            }
+                        }
+
+                        read();
+                    }).catch(err => {
+                        if (err.name !== 'AbortError') {
+                            addLog(`Error: ${err.message}`, 'error');
+                        }
+                        finishExperiment();
+                    });
+                }
+
+                read();
+            }).catch(err => {
+                if (err.name !== 'AbortError') {
+                    addLog(`Connection error: ${err.message}`, 'error');
+                }
+                finishExperiment();
+            });
+        }
+
+        // Finish experiment
+        function finishExperiment() {
+            isRunning = false;
+            const btn = document.getElementById('runBtn');
+            btn.className = 'btn-run';
+            btn.innerHTML = '▶️ Run Experiment';
+            btn.disabled = false;
+        }
+
+        // Handle SSE events
+        function handleEvent(data) {
+            const tempSteps = parseInt(document.getElementById('temp_steps').value);
+            const nConcepts = parseInt(document.getElementById('n_concepts').value);
+
+            switch (data.type) {
+                case 'concepts':
+                    data.concepts.forEach(c => {
+                        const chip = document.createElement('div');
+                        chip.className = 'concept-chip';
+                        chip.id = `concept-${c}`;
+                        chip.innerHTML = `<span>${c}</span><span class="score">--</span>`;
+                        document.getElementById('conceptGrid').appendChild(chip);
+                    });
+                    document.getElementById('conceptCount').textContent = data.concepts.length;
+                    
+                    // Update chart title based on number of concepts
+                    if (data.concepts.length === 1) {
+                        chart.options.plugins.title.text = `Profile: ${data.concepts[0]}`;
+                    } else {
+                        chart.options.plugins.title.text = `Profile: Average (${data.concepts.length} Concepts)`;
+                    }
+                    chart.update();
+                    break;
+
+                case 'log':
+                    // Only show important logs
+                    if (data.message.includes('Cache:')) {
+                        addLog(data.message, 'info');
+                    }
+                    break;
+
+                case 'temperature_start':
+                    currentTemp = data.temperature;
+                    const tempIndex = experimentData.temperatures.length + 1;
+                    addLog(`📊 Temperature ${tempIndex}/${tempSteps}: λ=${data.temperature}`, 'temp-header');
+                    break;
+
+                case 'concept_start':
+                    currentConcept = data.concept;
+                    currentStep++;
+                    const conceptProgress = Math.round((currentStep / totalSteps) * 100);
+                    updateProgress(
+                        `Processing "${data.concept}"`,
+                        currentStep,
+                        totalSteps,
+                        `λ=${currentTemp}`
+                    );
+                    break;
+
+                case 'description':
+                    // Silent - descriptions not shown (summary mode)
+                    break;
+
+                case 'interpretation':
+                    // Silent - interpretations shown only in metrics summary
+                    break;
+
+                case 'metrics':
+                    // Show concept result as summary
+                    const chip = document.getElementById(`concept-${data.concept}`);
+                    if (chip) {
+                        chip.classList.add('complete');
+                        chip.querySelector('.score').textContent = `D=${data.D}`;
+                    }
+                    addLog(
+                        `<span class="concept-name">${data.concept}</span> → ` +
+                        `S=${data.S}, D=${data.D}`,
+                        'concept-result'
+                    );
+                    break;
+
+                case 'temperature_complete':
+                    experimentData.temperatures.push(data.temperature);
+                    experimentData.S.push(data.avg_S);
+                    experimentData.D.push(data.avg_D);
+
+                    chart.data.labels.push(`λ=${data.temperature}`);
+                    chart.data.datasets[0].data.push(data.avg_S);
+                    chart.data.datasets[1].data.push(data.avg_D);
+                    chart.update();
+
+                    const progress = (experimentData.temperatures.length / tempSteps) * 100;
+                    updateProgress(
+                        'Temperature complete',
+                        experimentData.temperatures.length,
+                        tempSteps,
+                        `Avg S=${data.avg_S}, D=${data.avg_D}`
+                    );
+                    break;
+
+                case 'complete':
+                    addLog(
+                        `🎉 Complete! Semiotic Capacity: <strong>${data.semiotic_capacity}</strong> at λ*=${data.optimal_temperature}`,
+                        'complete'
+                    );
+                    document.getElementById('capacityValue').textContent = data.semiotic_capacity;
+                    document.getElementById('optimalTemp').textContent = data.optimal_temperature;
+                    updateProgress('Complete!', 100, 100, '');
+                    finishExperiment();
+                    break;
+
+                case 'error':
+                    addLog(`❌ ${data.message}`, 'error');
+                    break;
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            checkStatus();
+            setInterval(checkStatus, 10000);
+        });
+    </script>
+</body>
+
+</html>

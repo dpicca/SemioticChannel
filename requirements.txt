@@ -1,0 +1,10 @@
+numpy
+matplotlib
+agno
+requests
+python-dotenv
+scikit-learn
+openai
+ollama
+flask
+flask-cors

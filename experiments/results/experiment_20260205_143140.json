@@ -1,0 +1,81 @@
+{
+  "metadata": {
+    "timestamp": "2026-02-05T14:31:39.818869",
+    "model_id": "llama3:latest",
+    "temperatures": [
+      0.1,
+      0.3,
+      0.5,
+      0.7,
+      0.9,
+      1.1,
+      1.3,
+      1.5
+    ],
+    "n_descriptions": 2,
+    "n_concepts": 2
+  },
+  "by_temperature": {
+    "0.1": {
+      "avg_S": 0.0,
+      "avg_D": 0.0,
+      "std_S": 0,
+      "std_D": 0,
+      "concepts_data": []
+    },
+    "0.3": {
+      "avg_S": 0.0,
+      "avg_D": 0.0,
+      "std_S": 0,
+      "std_D": 0,
+      "concepts_data": []
+    },
+    "0.5": {
+      "avg_S": 0.0,
+      "avg_D": 0.0,
+      "std_S": 0,
+      "std_D": 0,
+      "concepts_data": []
+    },
+    "0.7": {
+      "avg_S": 0.0,
+      "avg_D": 0.0,
+      "std_S": 0,
+      "std_D": 0,
+      "concepts_data": []
+    },
+    "0.9": {
+      "avg_S": 0.0,
+      "avg_D": 0.0,
+      "std_S": 0,
+      "std_D": 0,
+      "concepts_data": []
+    },
+    "1.1": {
+      "avg_S": 0.0,
+      "avg_D": 0.0,
+      "std_S": 0,
+      "std_D": 0,
+      "concepts_data": []
+    },
+    "1.3": {
+      "avg_S": 0.0,
+      "avg_D": 0.0,
+      "std_S": 0,
+      "std_D": 0,
+      "concepts_data": []
+    },
+    "1.5": {
+      "avg_S": 0.0,
+      "avg_D": 0.0,
+      "std_S": 0,
+      "std_D": 0,
+      "concepts_data": []
+    }
+  },
+  "by_concept": {},
+  "capacity": {
+    "C": 0.0,
+    "optimal_temperature": 0.1
+  }
+}
