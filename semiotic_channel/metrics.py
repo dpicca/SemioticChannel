@@ -191,6 +191,45 @@ def calculate_embedding_entropy(embeddings: list[list[float]], n_clusters: int =
     return calculate_entropy(labels.tolist())
 
 
+def calculate_semantic_diversity(embeddings: list[list[float]]) -> float:
+    """
+    Calculate Semantic Diversity as the mean pairwise cosine distance.
+    Higher value = more diverse (less similar) descriptions.
+    """
+    if len(embeddings) < 2:
+        return 0.0
+    
+    from sklearn.metrics.pairwise import cosine_distances
+    
+    # Calculate pairwise cosine distances (1 - cosine_similarity)
+    distances = cosine_distances(embeddings)
+    
+    # Get upper triangle indices (excluding diagonal) to count each pair once
+    n = len(embeddings)
+    upper_tri_indices = np.triu_indices(n, k=1)
+    
+    # Return mean distance
+    if len(upper_tri_indices[0]) == 0:
+        return 0.0
+        
+    return float(np.mean(distances[upper_tri_indices]))
+
+
+def calculate_efficiency(description: str, score: float) -> float:
+    """
+    Efficiency = 1 / length (words) if score > 0.8 (success).
+    Otherwise 0.0.
+    """
+    if score < 0.8:
+        return 0.0
+        
+    words = description.split()
+    if not words:
+        return 0.0
+        
+    return 1.0 / len(words)
+
+
 class SemioticMetrics:
     """Static methods for semiotic channel metrics."""
     
@@ -242,3 +281,17 @@ class SemioticMetrics:
         Semiotic Capacity C = max(D(lambda))
         """
         return max(decipherability_scores) if decipherability_scores else 0.0
+
+    @staticmethod
+    def diversity(embeddings: list[list[float]]) -> float:
+        """
+        Semantic Diversity - mean pairwise cosine distance of embeddings.
+        """
+        return calculate_semantic_diversity(embeddings)
+
+    @staticmethod
+    def efficiency(description: str, success_score: float) -> float:
+        """
+        Communicative Efficiency - bits per success (approx).
+        """
+        return calculate_efficiency(description, success_score)
