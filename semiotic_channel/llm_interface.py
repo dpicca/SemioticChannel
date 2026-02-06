@@ -193,6 +193,16 @@ class OllamaEmbeddings:
         self.model = model
         self.host = host
         self.endpoint = f"{host}/api/embed"
+        self._dimension = 768 # Default fallback
+        self._dimension = self._get_dimension()
+        
+    def _get_dimension(self) -> int:
+        """Determine embedding dimension by embedding a test string."""
+        try:
+            vec = self.embed("test")
+            return len(vec)
+        except Exception:
+            return 768 # Fallback for nomic-embed-text
     
     def embed(self, text: str) -> list[float]:
         """
@@ -204,22 +214,34 @@ class OllamaEmbeddings:
         Returns:
             Embedding vector as list of floats
         """
-        response = requests.post(
-            self.endpoint,
-            json={"model": self.model, "input": text}
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        # Ollama returns embeddings in 'embeddings' key as a list of lists
-        if "embeddings" in data and len(data["embeddings"]) > 0:
-            return data["embeddings"][0]
-        # Fallback for older API format
-        elif "embedding" in data:
-            return data["embedding"]
-        else:
-            raise ValueError(f"Unexpected response format: {data}")
-    
+        # Handle empty text to avoid API errors
+        if not text or not text.strip():
+            return [0.0] * self._dimension
+
+        try:
+            response = requests.post(
+                self.endpoint,
+                json={"model": self.model, "input": text}
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            # Ollama returns embeddings in 'embeddings' key as a list of lists
+            if "embeddings" in data and len(data["embeddings"]) > 0:
+                return data["embeddings"][0]
+            # Fallback for older API format
+            elif "embedding" in data:
+                return data["embedding"]
+            elif "embeddings" in data and len(data["embeddings"]) == 0:
+                 # API returned empty list (valid response, no content)
+                 return [0.0] * self._dimension
+            else:
+                raise ValueError(f"Unexpected response format: {data}")
+                
+        except Exception as e:
+            print(f"Embedding error for text '{text[:20]}...': {e}")
+            return [0.0] * self._dimension
+
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """
         Get embeddings for multiple texts.
@@ -230,6 +252,7 @@ class OllamaEmbeddings:
         Returns:
             List of embedding vectors
         """
+        # Filter out completely empty texts if desired, but here we just embed them strictly
         return [self.embed(text) for text in texts]
 
 

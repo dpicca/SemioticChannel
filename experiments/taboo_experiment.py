@@ -22,11 +22,7 @@ from semiotic_channel.llm_interface import (
     list_available_models,
     DEFAULT_MODEL
 )
-from semiotic_channel.metrics import (
-    SemioticMetrics, 
-    calculate_reciprocal_rank, 
-    calculate_efficiency
-)
+from semiotic_channel.metrics import SemioticMetrics
 
 
 def run_experiment(
@@ -36,7 +32,8 @@ def run_experiment(
     model_pairs: list[tuple[str, str]] = None,
     output_dir: str = "experiments/results",
     log_dir: str = "experiments/logs",
-    verbose: bool = True
+    verbose: bool = True,
+    plotting: bool = True
 ):
     """
     Run the full Taboo Semiotic experiment with cross-model evaluation.
@@ -49,6 +46,7 @@ def run_experiment(
         output_dir: Directory to save results
         log_dir: Directory to save turn-level logs
         verbose: Print progress
+        plotting: Plot the results
     
     Returns:
         Dictionary with experimental results
@@ -58,7 +56,7 @@ def run_experiment(
         concepts = get_concepts("all")[:10]
     
     if temperatures is None:
-        temperatures = [0.1, 0.4, 0.7, 1.0, 1.3]
+        temperatures = [0.1, 0.4, 0.7, 1.0, 1.3, 1.6, 1.9]
         
     if model_pairs is None:
         # Default scenario: Self-play + Cross-play with stronger model
@@ -72,7 +70,7 @@ def run_experiment(
         raise RuntimeError("Ollama server not running. Start it with 'ollama serve'")
     
     # Initialize components
-    embeddings_model = OllamaEmbeddings() # For Semantic Diversity
+    embeddings_model = OllamaEmbeddings() # For Clustering
     
     # Results storage
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -114,9 +112,8 @@ def run_experiment(
                 print(f"\n  Temperature: {temp}")
             
             temp_metrics = {
-                "breadths": [],        # Semantic Diversity
-                "decipherabilities": [], # Reciprocal Rank
-                "efficiencies": []     # Bits per success
+                "S": [],        # Semiotic Breadth (Perplexity)
+                "D": []         # Decipherability (Mutual Information)
             }
             
             for concept in concepts:
@@ -134,20 +131,14 @@ def run_experiment(
                 if not descriptions:
                     continue
                     
-                # 2. Interpret (Ranked)
+                # 2. Interpret (Full List for MI)
                 guesses_lists = []
-                turn_scores = []
                 
                 for desc in descriptions:
                     guesses = receiver.interpret_top_k(desc, k=5)
                     guesses_lists.append(guesses)
                     
-                    # Turn Metrics
-                    rank_score = calculate_reciprocal_rank(concept, guesses)
-                    efficiency = calculate_efficiency(desc, rank_score)
-                    turn_scores.append((rank_score, efficiency))
-                    
-                    # Log Turn
+                    # Log Turn (Basic info)
                     log_entry = {
                         "timestamp": datetime.now().isoformat(),
                         "emitter": emitter_model,
@@ -155,47 +146,43 @@ def run_experiment(
                         "concept": concept,
                         "temp": temp,
                         "description": desc,
-                        "guesses": guesses,
-                        "rank": rank_score, # MRR for this turn
-                        "efficiency": efficiency
+                        "guesses": guesses
                     }
                     with open(log_file_path, 'a') as f:
                         f.write(json.dumps(log_entry) + "\n")
                 
                 # 3. Aggregate Metrics for Concept
                 
-                # S: Semantic Diversity (needs embeddings)
+                # Embed messages for clustering
                 desc_embeddings = embeddings_model.embed_batch(descriptions)
-                S = SemioticMetrics.diversity(desc_embeddings)
                 
-                # D: Decipherability (Rank-based)
-                # Average of rank scores
-                ranks = [s[0] for s in turn_scores]
-                D =  float(np.mean(ranks)) if ranks else 0.0
+                # Semiotic Breadth S (Perplexity)
+                S = SemioticMetrics.breadth(desc_embeddings)
                 
-                # E: Efficiency
-                effs = [s[1] for s in turn_scores]
-                E = float(np.mean(effs)) if effs else 0.0
+                # Decipherability D (Mutual Information)
+                # We use the top-1 guess as the "interpretation" for the discrete side of MI
+                top_1_guesses = [g[0] if g else "" for g in guesses_lists]
+                D = SemioticMetrics.decipherability(desc_embeddings, top_1_guesses)
                 
                 if verbose:
-                    print(f" S={S:.2f}, D={D:.2f}, E={E:.2f}")
+                    print(f" S={S:.2f} (PPL), D={D:.2f} (MI)")
                 
                 # Store
-                temp_metrics["breadths"].append(S)
-                temp_metrics["decipherabilities"].append(D)
-                temp_metrics["efficiencies"].append(E)
+                temp_metrics["S"].append(S)
+                temp_metrics["D"].append(D)
                 
                 if concept not in pair_data["by_concept"]:
                     pair_data["by_concept"][concept] = {}
-                pair_data["by_concept"][concept][temp] = {"S": S, "D": D, "E": E}
+                pair_data["by_concept"][concept][temp] = {
+                    "S": S, "D": D
+                }
             
             # Aggregate for Temperature
             pair_data["by_temperature"][temp] = {
-                "avg_S": float(np.mean(temp_metrics["breadths"])) if temp_metrics["breadths"] else 0,
-                "avg_D": float(np.mean(temp_metrics["decipherabilities"])) if temp_metrics["decipherabilities"] else 0,
-                "avg_E": float(np.mean(temp_metrics["efficiencies"])) if temp_metrics["efficiencies"] else 0,
-                "std_S": float(np.std(temp_metrics["breadths"])) if temp_metrics["breadths"] else 0,
-                "std_D": float(np.std(temp_metrics["decipherabilities"])) if temp_metrics["decipherabilities"] else 0,
+                "avg_S": float(np.mean(temp_metrics["S"])) if temp_metrics["S"] else 0,
+                "avg_D": float(np.mean(temp_metrics["D"])) if temp_metrics["D"] else 0,
+                "std_S": float(np.std(temp_metrics["S"])) if temp_metrics["S"] else 0,
+                "std_D": float(np.std(temp_metrics["D"])) if temp_metrics["D"] else 0,
             }
             
         experiment_results["results"][pair_key] = pair_data
@@ -209,54 +196,41 @@ def run_experiment(
     
     if verbose:
         print(f"\nResults saved to: {output_path}")
+    
+    if plotting:
+        plot_results(experiment_results, output_path)
         
     return experiment_results
 
 
 def plot_results(results: dict, output_path: str = "semiotic_profile_comparison.png"):
     """
-    Generate visualization of the Semiotic Channel Profile for all pairs.
+    Generate visualization of Semiotic Breadth (S) and Decipherability (D) vs Temperature.
     """
     import matplotlib.pyplot as plt
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    plt.figure(figsize=(10, 6))
     
     colors = ['blue', 'green', 'red', 'purple', 'orange']
-    markers = ['o', 's', '^', 'D', 'x']
     
     for i, (pair_key, data) in enumerate(results["results"].items()):
         temps = sorted([float(t) for t in data["by_temperature"].keys()])
-        S_values = [data["by_temperature"][t]["avg_S"] for t in temps]
-        D_values = [data["by_temperature"][t]["avg_D"] for t in temps]
+        S_values = [data["by_temperature"][str(t)]["avg_S"] for t in temps]
+        D_values = [data["by_temperature"][str(t)]["avg_D"] for t in temps]
         
         color = colors[i % len(colors)]
-        marker = markers[i % len(markers)]
         
-        # Plot 1: D vs Temperature
-        ax1.plot(temps, D_values, marker=marker, linestyle='-', color=color, label=f'{pair_key} (D)')
-        # Could also plot S, but might get crowded. Let's stick to D comparison or S vs D.
+        # Plot S line (Dashed)
+        plt.plot(temps, S_values, marker='o', linestyle='--', color=color, alpha=0.7, label=f'{pair_key} (S - PPL)')
         
-        # Plot 2: Semiotic Profile (S vs D)
-        ax2.plot(S_values, D_values, marker=marker, linestyle='-', color=color, label=pair_key, linewidth=2)
-        
-        # Annotate points
-        for j, temp in enumerate(temps):
-            if j == 0 or j == len(temps)-1: # Only start/end to avoid clutter
-                ax2.annotate(f'{temp}', (S_values[j], D_values[j]), 
-                            textcoords="offset points", xytext=(5, 5), fontsize=8, color=color)
+        # Plot D line (Solid)
+        plt.plot(temps, D_values, marker='s', linestyle='-', color=color, linewidth=2, label=f'{pair_key} (D - MI)')
 
-    # Styling
-    ax1.set_xlabel('Temperature (λ)')
-    ax1.set_ylabel('Decipherability (D)')
-    ax1.set_title('Decipherability by Temperature')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
-    
-    ax2.set_xlabel('Semantic Diversity (S)')
-    ax2.set_ylabel('Decipherability (D)')
-    ax2.set_title('Semiotic Channel Profile (Breadth vs Depth)')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
+    plt.xlabel('Temperature (λ)')
+    plt.ylabel('Score (Bits / PPL)')
+    plt.title('Semiotic Channel Metrics by Temperature')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=150)
@@ -268,14 +242,21 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Run Taboo Semiotic Experiment")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Ollama model for Self-Play")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="Ollama model for Self-Play (default)")
+    parser.add_argument("--emitter", help="Specific Ollama model for Emitter (overrides --model)")
+    parser.add_argument("--receiver", help="Specific Ollama model for Receiver (overrides --model)")
     parser.add_argument("--n-concepts", type=int, default=5, help="Number of concepts to test")
     parser.add_argument("--n-descriptions", type=int, default=5, help="Descriptions per temperature")
     
     args = parser.parse_args()
     
-    # Simple self-play default
-    pairs = [(args.model, args.model)]
+    # Determine models
+    emitter = args.emitter if args.emitter else args.model
+    receiver = args.receiver if args.receiver else args.model
+    
+    pairs = [(emitter, receiver)]
+    
+    print(f"Configuration: Emitter={emitter}, Receiver={receiver}")
     
     run_experiment(
         concepts=get_concepts("all")[:args.n_concepts],
